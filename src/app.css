@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+@theme {
+  --color-dark: #0f172a;
+  --color-card: #1e293b;
+  --color-neon-green: #39ff14;
+  --color-neon-red: #ff3131;
+}
+
+body {
+  background-color: var(--color-dark);
+  color: #f8fafc;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  margin: 0;
+}
+
+/* Micro-animations */
+.tick-up {
+  animation: flash-green 0.5s ease-out;
+}
+
+.tick-down {
+  animation: flash-red 0.5s ease-out;
+}
+
+@keyframes flash-green {
+  0% { color: var(--color-neon-green); text-shadow: 0 0 8px var(--color-neon-green); }
+  100% { color: inherit; text-shadow: none; }
+}
+
+@keyframes flash-red {
+  0% { color: var(--color-neon-red); text-shadow: 0 0 8px var(--color-neon-red); }
+  100% { color: inherit; text-shadow: none; }
+}
+
+/* Glassmorphism */
+.glass {
+  background: rgba(30, 41, 59, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
