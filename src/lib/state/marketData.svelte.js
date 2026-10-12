@@ -2,50 +2,70 @@ export function createMarketData() {
 	/**
 	 * @type {Record<string, {
 	 *   symbol: string;
+	 *   krakenSymbol: string;
 	 *   price: number;
 	 *   history: number[];
 	 *   volatility: number;
 	 *   bias: string;
 	 *   change: number;
+	 *   changePct: number;
 	 *   vwap: number;
+	 *   high: number;
+	 *   low: number;
 	 * }>}
 	 */
 	let stocks = $state({
 		NVDA: {
 			symbol: 'NVDA',
-			price: 0,
-			history: [],
+			krakenSymbol: 'NVDAx/USD',
+			price: 226.50,
+			history: [226.50],
 			volatility: 0,
 			bias: 'NEUTRAL',
 			change: 0,
-			vwap: 0
+			changePct: 0,
+			vwap: 226.50,
+			high: 0,
+			low: 0
 		},
 		MU: {
 			symbol: 'MU',
-			price: 0,
-			history: [],
+			krakenSymbol: 'MUx/USD',
+			price: 112.40,
+			history: [112.40],
 			volatility: 0,
 			bias: 'NEUTRAL',
 			change: 0,
-			vwap: 0
+			changePct: 0,
+			vwap: 112.40,
+			high: 0,
+			low: 0
 		},
 		GOOGL: {
 			symbol: 'GOOGL',
-			price: 0,
-			history: [],
+			krakenSymbol: 'GOOGLx/USD',
+			price: 182.20,
+			history: [182.20],
 			volatility: 0,
 			bias: 'NEUTRAL',
 			change: 0,
-			vwap: 0
+			changePct: 0,
+			vwap: 182.20,
+			high: 0,
+			low: 0
 		},
 		META: {
 			symbol: 'META',
-			price: 0,
-			history: [],
+			krakenSymbol: 'METAx/USD',
+			price: 610.30,
+			history: [610.30],
 			volatility: 0,
 			bias: 'NEUTRAL',
 			change: 0,
-			vwap: 0
+			changePct: 0,
+			vwap: 610.30,
+			high: 0,
+			low: 0
 		}
 	});
 
@@ -58,88 +78,27 @@ export function createMarketData() {
 	let ws = null;
 
 	/**
-	 * @type {string | number | NodeJS.Timeout | null | undefined}
+	 * Map Kraken symbols to local symbols
 	 */
-	let mockInterval = null;
-
-	const API_KEY = import.meta.env.VITE_MASSIVE_API_KEY || '9hPCpdCQOCIuM0ZDlWtisGlOV0DHonnE';
-
-	const fallbackPrices = {
-		NVDA: 223.35,
-		MU: 130.20,
-		GOOGL: 175.40,
-		META: 505.10
+	const symbolMap = {
+		'NVDAx/USD': 'NVDA',
+		'MUx/USD': 'MU',
+		'GOOGLx/USD': 'GOOGL',
+		'METAx/USD': 'META'
 	};
 
-	/**
-	 * Fetch previous real market prices from Massive.
-	 */
-	async function fetchBasePrices() {
-		if (!API_KEY) {
-			throw new Error(
-				'VITE_MASSIVE_API_KEY is missing. Check your .env file and restart the development server.'
-			);
-		}
-
-		const symbols = Object.keys(stocks);
-
-		for (const sym of symbols) {
-			try {
-				const url =
-					`https://api.massive.com/v2/aggs/ticker/${sym}/prev` +
-					`?adjusted=true&apiKey=${encodeURIComponent(API_KEY)}`;
-
-				const res = await fetch(url);
-				const data = await res.json();
-
-				if (
-					res.ok &&
-					data.results &&
-					data.results.length > 0 &&
-					typeof data.results[0].c === 'number'
-				) {
-					const prevClose = data.results[0].c;
-
-					stocks[sym].price = prevClose;
-					stocks[sym].vwap = prevClose;
-					stocks[sym].history = [prevClose];
-					stocks[sym].change = 0;
-
-					console.log(`Massive real price ${sym}: $${prevClose}`);
-				} else {
-					console.warn(
-						`Could not fetch real price for ${sym}.`,
-						data
-					);
-
-					// Use fallback only if Massive doesn't return data.
-					// @ts-ignore
-					stocks[sym].price = fallbackPrices[sym];
-					// @ts-ignore
-					stocks[sym].vwap = fallbackPrices[sym];
-					// @ts-ignore
-					stocks[sym].history = [fallbackPrices[sym]];
-				}
-			} catch (err) {
-				console.error(`Failed to fetch base price for ${sym}:`, err);
-
-				// @ts-ignore
-				stocks[sym].price = fallbackPrices[sym];
-				// @ts-ignore
-				stocks[sym].vwap = fallbackPrices[sym];
-				// @ts-ignore
-				stocks[sym].history = [fallbackPrices[sym]];
-			}
-		}
-	}
+	const KRAKEN_WS_URL = 'wss://ws.kraken.com/v2';
+	let reconnectTimer = null;
+	let shouldReconnect = true;
 
 	/**
-	 * Calculate volatility, VWAP and execution bias.
+	 * Calculate volatility, VWAP, and execution bias.
 	 *
 	 * @param {string} symbol
 	 * @param {number} newPrice
+	 * @param {number} [exchangeVwap]
 	 */
-	function calculateMetrics(symbol, newPrice) {
+	function calculateMetrics(symbol, newPrice, exchangeVwap) {
 		const stock = stocks[symbol];
 
 		if (!stock || !Number.isFinite(newPrice)) {
@@ -152,20 +111,22 @@ export function createMarketData() {
 			stock.history.shift();
 		}
 
-		const sum = stock.history.reduce((a, b) => a + b, 0);
-		stock.vwap = sum / stock.history.length;
+		const vwap = (exchangeVwap && Number.isFinite(exchangeVwap))
+			? exchangeVwap
+			: (stock.history.reduce((a, b) => a + b, 0) / stock.history.length);
 
-		const mean = stock.vwap;
+		stock.vwap = vwap;
 
+		// Calculate volatility as standard deviation around the VWAP
 		const variance =
 			stock.history.reduce(
-				(acc, val) => acc + Math.pow(val - mean, 2),
+				(acc, val) => acc + Math.pow(val - vwap, 2),
 				0
 			) / stock.history.length;
 
 		stock.volatility = Math.sqrt(variance);
 
-		const threshold = newPrice * 0.0005;
+		const threshold = newPrice * 0.0005; // 0.05% threshold
 
 		if (stock.volatility > threshold) {
 			if (newPrice > stock.vwap) {
@@ -181,235 +142,125 @@ export function createMarketData() {
 	}
 
 	/**
-	 * Temporary mock stream.
-	 * Only used when Massive WebSocket authentication fails.
+	 * Connect to Kraken WebSocket v2 and subscribe to real-time tickers.
 	 */
-	function startMockFallback() {
-		if (mockInterval) {
-			return;
+	function connect() {
+		if (ws) {
+			try {
+				ws.close();
+			} catch (_) {}
+			ws = null;
 		}
 
-		console.warn('Starting MOCK market-data stream.');
-
-		isMocking = true;
-		isConnected = true;
-
-		mockInterval = setInterval(() => {
-			const symbols = Object.keys(stocks);
-
-			const numUpdates =
-				Math.floor(Math.random() * 2) + 1;
-
-			for (let i = 0; i < numUpdates; i++) {
-				const sym =
-					symbols[
-						Math.floor(Math.random() * symbols.length)
-					];
-
-				const stock = stocks[sym];
-
-				if (!stock || stock.price === 0) {
-					continue;
-				}
-
-				const change =
-					(Math.random() - 0.5) *
-					(stock.price * 0.004);
-
-				const newPrice = stock.price + change;
-
-				stock.change = newPrice - stock.price;
-				stock.price = newPrice;
-
-				calculateMetrics(sym, newPrice);
-			}
-		}, 800);
-	}
-
-	/**
-	 * Connect to Massive WebSocket.
-	 */
-	async function connect() {
-		if (!API_KEY) {
-			console.error(
-				'VITE_MASSIVE_API_KEY is not defined.'
-			);
-			return;
-		}
+		console.log('Connecting to Kraken WebSocket v2...');
 
 		try {
-			// First load real previous prices.
-			await fetchBasePrices();
-
-			console.log(
-				'Real base prices loaded. Connecting to Massive WebSocket...'
-			);
-
-			ws = new WebSocket(
-				'wss://delayed.massive.com/stocks'
-			);
+			ws = new WebSocket(KRAKEN_WS_URL);
 
 			ws.onopen = () => {
-				console.log(
-					'Massive WebSocket connected. Authenticating...'
-				);
+				console.log('Kraken WebSocket connected. Subscribing to real-time ticker channel...');
+				isConnected = true;
+				isMocking = false;
 
-				// @ts-ignore
-				ws.send(
-					JSON.stringify({
-						action: 'auth',
-						params: API_KEY
-					})
-				);
+				const subscriptionMessage = {
+					method: 'subscribe',
+					params: {
+						channel: 'ticker',
+						symbol: Object.keys(symbolMap)
+					}
+				};
+
+				ws.send(JSON.stringify(subscriptionMessage));
 			};
 
 			ws.onmessage = (event) => {
 				try {
-					const parsed = JSON.parse(event.data);
+					const msg = JSON.parse(event.data);
 
-					// Massive normally returns an array,
-					// but handle a single message too.
-					const messages = Array.isArray(parsed)
-						? parsed
-						: [parsed];
+					// Heartbeat or status messages
+					if (msg.channel === 'heartbeat') {
+						return;
+					}
 
-					for (const msg of messages) {
-						if (msg.ev === 'status') {
-							console.log(
-								'Massive status:',
-								msg
-							);
+					if (msg.channel === 'status') {
+						console.log('Kraken status:', msg);
+						return;
+					}
 
-							if (
-								msg.status ===
-								'auth_success'
-							) {
-								isConnected = true;
-								isMocking = false;
-
-								console.log(
-									'Massive authentication successful.'
-								);
-
-								// @ts-ignore
-								ws.send(
-									JSON.stringify({
-										action: 'subscribe',
-										params:
-											'T.NVDA,T.MU,T.GOOGL,T.META'
-									})
-								);
-
-								console.log(
-									'Subscribed to NVDA, MU, GOOGL and META.'
-								);
-							}
-
-							if (
-								msg.status ===
-								'auth_failed'
-							) {
-								console.error(
-									'Massive WebSocket authentication failed:',
-									msg
-								);
-
-								// Close WebSocket.
-								// Do NOT pretend this is real-time data.
-								// The app will retain the real previous-close prices.
-								// @ts-ignore
-								ws.close();
-
-								startMockFallback();
-							}
+					// Subscription response
+					if (msg.method === 'subscribe') {
+						if (msg.success) {
+							console.log('Subscribed to Kraken symbol:', msg.result?.symbol);
+						} else {
+							console.error('Subscription error for', msg.symbol, msg.error);
 						}
+						return;
+					}
 
-						// Trade event
-						if (msg.ev === 'T') {
-							const sym = msg.sym;
-							const newPrice = Number(msg.p);
+					// Ticker snapshots and real-time updates
+					if (msg.channel === 'ticker' && Array.isArray(msg.data)) {
+						for (const item of msg.data) {
+							const localSym = symbolMap[item.symbol];
+							if (localSym && stocks[localSym]) {
+								const stock = stocks[localSym];
 
-							if (
-								stocks[sym] &&
-								Number.isFinite(newPrice)
-							) {
-								const stock = stocks[sym];
+								if (typeof item.last === 'number' && Number.isFinite(item.last)) {
+									stock.change = typeof item.change === 'number' ? item.change : (item.last - stock.price);
+									stock.changePct = typeof item.change_pct === 'number' ? item.change_pct : 0;
+									stock.price = item.last;
 
-								stock.change =
-									newPrice -
-									stock.price;
+									if (typeof item.vwap === 'number' && Number.isFinite(item.vwap)) {
+										stock.vwap = item.vwap;
+									}
+									if (typeof item.high === 'number') stock.high = item.high;
+									if (typeof item.low === 'number') stock.low = item.low;
 
-								stock.price =
-									newPrice;
-
-								calculateMetrics(
-									sym,
-									newPrice
-								);
+									calculateMetrics(localSym, item.last, stock.vwap);
+								}
 							}
 						}
 					}
 				} catch (err) {
-					console.error(
-						'Error processing Massive WebSocket message:',
-						err
-					);
+					console.error('Error parsing Kraken message:', err);
 				}
 			};
 
 			ws.onclose = () => {
-				console.warn(
-					'Massive WebSocket connection closed.'
-				);
+				console.warn('Kraken WebSocket closed.');
+				isConnected = false;
 
-				if (!isMocking) {
-					isConnected = false;
-
-					console.log(
-						'Reconnecting to Massive in 5 seconds...'
-					);
-
-					setTimeout(() => {
-						if (!ws && !mockInterval) {
-							connect();
-						}
-					}, 5000);
+				if (shouldReconnect) {
+					if (reconnectTimer) clearTimeout(reconnectTimer);
+					reconnectTimer = setTimeout(() => {
+						connect();
+					}, 3000);
 				}
 			};
 
 			ws.onerror = (err) => {
-				console.error(
-					'Massive WebSocket error:',
-					err
-				);
+				console.error('Kraken WebSocket error:', err);
 			};
 		} catch (err) {
-			console.error(
-				'Failed to connect to Massive:',
-				err
-			);
-
+			console.error('Failed to create WebSocket:', err);
 			isConnected = false;
 		}
 	}
 
 	function startStream() {
-		if (!ws && !mockInterval) {
-			connect();
-		}
+		shouldReconnect = true;
+		connect();
 	}
 
 	function stopStream() {
+		shouldReconnect = false;
+		if (reconnectTimer) {
+			clearTimeout(reconnectTimer);
+			reconnectTimer = null;
+		}
 		if (ws) {
 			ws.close();
 			ws = null;
 		}
-
-		if (mockInterval) {
-			clearInterval(mockInterval);
-			mockInterval = null;
-		}
-
 		isConnected = false;
 		isMocking = false;
 	}

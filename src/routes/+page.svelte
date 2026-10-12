@@ -1,4 +1,4 @@
-<script lang="ts">
+<script>
 	import { market } from '$lib/state/marketData.svelte.js';
 	import { onMount, onDestroy } from 'svelte';
 	import { Activity, TrendingUp, TrendingDown, Minus, ShieldAlert } from '@lucide/svelte';
@@ -13,19 +13,28 @@
 		market.stopStream();
 	});
 
-	function getPriceClass(stock: any): string {
+	/**
+	 * @param {{ symbol?: string; price?: number; history?: number[]; volatility?: number; bias?: string; change: any; vwap?: number; }} stock
+	 */
+	function getPriceClass(stock) {
 		if (stock.change > 0) return 'tick-up';
 		if (stock.change < 0) return 'tick-down';
 		return '';
 	}
 
-	function getBiasIcon(bias: string) {
+	/**
+	 * @param {string} bias
+	 */
+	function getBiasIcon(bias) {
 		if (bias === 'LONG') return TrendingUp;
 		if (bias === 'SHORT') return TrendingDown;
 		return Minus;
 	}
 
-	function getBiasColor(bias: string) {
+	/**
+	 * @param {string} bias
+	 */
+	function getBiasColor(bias) {
 		if (bias === 'LONG') return 'text-green-400';
 		if (bias === 'SHORT') return 'text-red-400';
 		return 'text-slate-400';
@@ -39,7 +48,11 @@
 			<div>
 				<h1 class="text-3xl font-bold tracking-tight text-white">Nasdaq Volatility Screener</h1>
 				<p class="text-xs text-slate-500 mt-1">
-					{market.statusMessage}
+					{#if 'statusMessage' in market}
+						{market.statusMessage}
+					{:else}
+						Kraken API
+					{/if}
 				</p>
 			</div>
 		</div>
@@ -61,7 +74,7 @@
 					{#if 'connectionMode' in market}
 						{market.connectionMode}
 					{:else}
-						OFFLINE
+						ONLINE
 					{/if}
 				{:else}
 					OFFLINE
@@ -70,7 +83,7 @@
 		</div>
 	</header>
 
-	{#if market.error}
+	{#if 'error' in market && market.error}
 		<div class="mb-6 rounded-lg border border-red-500/30 bg-red-950/30 p-4 text-sm text-red-300">
 			<div class="font-semibold mb-1">Market data warning</div>
 			<div>{market.error}</div>
@@ -134,7 +147,11 @@
 				<div class="absolute -inset-px bg-linear-to-r from-cyan-500 to-blue-500 rounded-xl opacity-0 group-hover:opacity-10 transition-opacity duration-300 pointer-events-none"></div>
 			</div>
 		{/each}
+
+
 	</div>
+
+
 <p>
         &copy; {year} | Built by
         <a
