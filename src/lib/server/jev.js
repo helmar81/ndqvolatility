@@ -1,10 +1,15 @@
+/* eslint-disable no-unused-vars */
 // src/lib/server/jev.js
 import { env } from '$env/dynamic/private';
 
 
 
 // Access variables safely:
+// @ts-ignore
+// @ts-ignore
 const apiKey = env.KRAKEN_API_KEY || '';
+// @ts-ignore
+// @ts-ignore
 const apiSecret = env.KRAKEN_API_SECRET || '';
 
 /**
