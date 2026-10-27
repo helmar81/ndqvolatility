@@ -1,0 +1,16 @@
+# Nasdaq Volatility Screener
+
+> A market dashboard for tracking live quote data, volatility, VWAP, and AI-generated analysis for selected Nasdaq-listed stocks.
+
+The site covers NVDA, MU, GOOGL, META, MRNA, and HUT. Stock cards show quote and intraday metrics; the chart view provides candlesticks and volume for selectable intervals.
+
+## Pages
+
+- [Screener](https://ndqvolatility.web.app/): Stock cards, quote metrics, and optional AI-generated LONG, SHORT, or NEUTRAL analysis.
+- [Chart view](https://ndqvolatility.web.app/chart): Intraday candlestick and volume charts, with 1m, 5m, 15m, 1h, and 4h intervals. The chart supports the screener's six listed symbols.
+
+## Data and limitations
+
+- Screener quotes and chart history may come from different providers. Chart history uses Yahoo Finance's unofficial chart endpoint; HUT screener quotes use Nasdaq.
+- Chart history is periodically refreshed, not a streaming quote feed. Availability, freshness, and historical coverage are not guaranteed.
+- AI-generated analysis may be inaccurate or outdated. It is educational market analysis, not financial advice, and is not a guarantee of future performance.

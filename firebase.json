@@ -1,12 +1,52 @@
 {
+  "functions": {
+    "source": "functions"
+  },
   "hosting": {
     "public": "build",
-    "ignore": [
-      "firebase.json",
-      "**/.*",
-      "**/node_modules/**"
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "headers": [
+      {
+        "source": "**/*.@(js|css|png|jpg|jpeg|gif|webp|svg|woff|woff2|ttf|otf)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "max-age=31536000, immutable"
+          }
+        ]
+      },
+      {
+        "source": "404.html",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "max-age=3600"
+          }
+        ]
+      }
     ],
     "rewrites": [
+      {
+        "source": "/api/analyze",
+        "function": {
+          "functionId": "analyzeStock",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/stock-chart",
+        "function": {
+          "functionId": "stockChart",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/hut-quote",
+        "function": {
+          "functionId": "hutQuote",
+          "region": "us-central1"
+        }
+      },
       {
         "source": "**",
         "destination": "/index.html"

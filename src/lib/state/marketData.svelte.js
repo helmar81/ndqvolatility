@@ -2,7 +2,7 @@ export function createMarketData() {
 	/**
 	 * @type {Record<string, {
 	 *   symbol: string;
-	 *   krakenSymbol: string;
+	 *   krakenSymbol?: string;
 	 *   price: number;
 	 *   history: number[];
 	 *   volatility: number;
@@ -12,6 +12,7 @@ export function createMarketData() {
 	 *   vwap: number;
 	 *   high: number;
 	 *   low: number;
+	 *   quoteStatus?: 'loading' | 'available' | 'unavailable';
 	 * }>}
 	 */
 	let stocks = $state({
@@ -66,6 +67,34 @@ export function createMarketData() {
 			vwap: 610.30,
 			high: 0,
 			low: 0
+		},
+
+		MRNA: {
+			symbol: 'MRNA',
+			krakenSymbol: 'MRNAx/USD',
+			price: 150.25,
+			history: [150.25],
+			volatility: 0,
+			bias: 'NEUTRAL',
+			change: 0,
+			changePct: 0,
+			vwap: 211.30,
+			high: 0,
+			low: 0
+		},
+
+		HUT: {
+			symbol: 'HUT',
+			price: 0,
+			history: [],
+			volatility: 0,
+			bias: 'NEUTRAL',
+			change: 0,
+			changePct: 0,
+			vwap: 0,
+			high: 0,
+			low: 0,
+			quoteStatus: 'loading'
 		}
 	});
 
@@ -80,15 +109,20 @@ export function createMarketData() {
 	/**
 	 * Map Kraken symbols to local symbols
 	 */
+	/** @type {Record<string, string>} */
 	const symbolMap = {
 		'NVDAx/USD': 'NVDA',
 		'MUx/USD': 'MU',
 		'GOOGLx/USD': 'GOOGL',
-		'METAx/USD': 'META'
+		'METAx/USD': 'META',
+		'MRNAx/USD': 'MRNA'
 	};
 
 	const KRAKEN_WS_URL = 'wss://ws.kraken.com/v2';
+	/** @type {ReturnType<typeof setTimeout> | null} */
 	let reconnectTimer = null;
+	/** @type {ReturnType<typeof setInterval> | null} */
+	let hutQuoteTimer = null;
 	let shouldReconnect = true;
 
 	/**
@@ -141,6 +175,37 @@ export function createMarketData() {
 		}
 	}
 
+	/** Fetches HUT's Nasdaq quote independently of the Kraken WebSocket feed. */
+	async function refreshHutQuote() {
+		try {
+			const response = await fetch('/api/hut-quote', {
+				signal: AbortSignal.timeout(15_000)
+			});
+			if (!response.ok) {
+				throw new Error(`HUT quote request failed with status ${response.status}.`);
+			}
+
+			const payload = await response.json();
+			const quote = payload?.data?.primaryData;
+			const price = Number(quote?.lastSalePrice?.replace(/[$,]/g, ''));
+			if (!Number.isFinite(price) || price <= 0) {
+				throw new Error('Nasdaq returned an invalid HUT price.');
+			}
+
+			const stock = stocks.HUT;
+			const change = Number(quote.netChange);
+			const changePct = Number(quote.percentageChange?.replace('%', ''));
+			stock.price = price;
+			stock.change = Number.isFinite(change) ? change : 0;
+			stock.changePct = Number.isFinite(changePct) ? changePct : 0;
+			stock.quoteStatus = 'available';
+			calculateMetrics('HUT', price);
+		} catch (error) {
+			console.error('Unable to refresh HUT quote:', error);
+			stocks.HUT.quoteStatus = 'unavailable';
+		}
+	}
+
 	/**
 	 * Connect to Kraken WebSocket v2 and subscribe to real-time tickers.
 	 */
@@ -148,7 +213,9 @@ export function createMarketData() {
 		if (ws) {
 			try {
 				ws.close();
-			} catch (_) {}
+			} catch {
+				// Ignore close errors during reconnect.
+			}
 			ws = null;
 		}
 
@@ -170,7 +237,7 @@ export function createMarketData() {
 					}
 				};
 
-				ws.send(JSON.stringify(subscriptionMessage));
+				ws?.send(JSON.stringify(subscriptionMessage));
 			};
 
 			ws.onmessage = (event) => {
@@ -249,10 +316,20 @@ export function createMarketData() {
 	function startStream() {
 		shouldReconnect = true;
 		connect();
+		void refreshHutQuote();
+		if (!hutQuoteTimer) {
+			hutQuoteTimer = setInterval(() => {
+				void refreshHutQuote();
+			}, 60_000);
+		}
 	}
 
 	function stopStream() {
 		shouldReconnect = false;
+		if (hutQuoteTimer) {
+			clearInterval(hutQuoteTimer);
+			hutQuoteTimer = null;
+		}
 		if (reconnectTimer) {
 			clearTimeout(reconnectTimer);
 			reconnectTimer = null;
