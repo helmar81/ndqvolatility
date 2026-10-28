@@ -106,6 +106,16 @@ function transformYahooChart(payload, symbol, timeframe) {
 export default defineConfig({
 	server: {
 		proxy: {
+			'/api/analyze': {
+				target: 'http://localhost:8000',
+				changeOrigin: true,
+				secure: false
+			},
+			'/api': {
+				target: 'http://localhost:8000',
+				changeOrigin: true,
+				secure: false
+			},
 			'/api/stock-chart': {
 				target: 'https://query1.finance.yahoo.com',
 				changeOrigin: true,
