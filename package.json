@@ -5,6 +5,8 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",
+		"backend": "node scripts/run-backend.js",
+		"deploy:functions": "powershell -Command \"$env:FUNCTIONS_DISCOVERY_TIMEOUT=60; firebase deploy --only functions\"",
 		"build": "vite build",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",

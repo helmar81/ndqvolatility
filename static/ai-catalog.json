@@ -1,35 +1,13 @@
 {
-  "schema_version": "1.0",
-  "site": {
-    "name": "Nasdaq Volatility Screener",
-    "url": "https://ndqvolatility.web.app/",
-    "language": "en",
-    "description": "A market dashboard for selected Nasdaq-listed stocks, with quote metrics, volatility, VWAP, intraday charts, and optional AI-generated analysis."
-  },
-  "pages": [
+  "specVersion": "1.0",
+  "name": "Nasdaq Volatility Screener",
+  "description": "A market dashboard for selected Nasdaq-listed stocks, with quote metrics, volatility, VWAP, intraday charts, and optional AI-generated analysis",
+  "entries": [
     {
-      "name": "Screener",
-      "url": "https://ndqvolatility.web.app/",
+      "type": "llms-txt",
+      "name": "LLMs Text Summary",
+      "url": "/llms.txt",
       "description": "Stock cards for NVDA, MU, GOOGL, META, MRNA, and HUT show quote metrics and optional LONG, SHORT, or NEUTRAL analysis."
-    },
-    {
-      "name": "Chart view",
-      "url": "https://ndqvolatility.web.app/chart",
-      "description": "Intraday candlestick and volume charts for supported stocks, with 1m, 5m, 15m, 1h, and 4h intervals."
     }
-  ],
-  "topics": [
-    "Nasdaq stocks",
-    "market data",
-    "volatility",
-    "VWAP",
-    "intraday charts",
-    "educational market analysis"
-  ],
-  "data_limitations": [
-    "Quote and chart data may come from different providers.",
-    "Chart history uses Yahoo Finance's unofficial chart endpoint; availability, freshness, and historical coverage are not guaranteed.",
-    "Charts refresh periodically and are not a streaming quote feed.",
-    "AI-generated analysis may be inaccurate or outdated and is not financial advice or a guarantee of future performance."
   ]
 }

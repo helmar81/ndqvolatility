@@ -268,7 +268,7 @@
 </svelte:head>
 
 <main class="chart-page min-h-screen px-3 pt-4 pb-10 sm:px-6 sm:pt-7">
-	<div class="mx-auto max-w-[1440px]">
+	<div class="mx-auto max-w-360">
 		<header
 			class="mb-6 flex items-center justify-between gap-3 border-b border-slate-800 pb-4 sm:mb-8 sm:pb-5"
 		>

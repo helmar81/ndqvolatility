@@ -1,0 +1,4 @@
+fastapi>=0.115,<1.0
+uvicorn[standard]>=0.34,<1.0
+python-dotenv>=1.0,<2.0
+tradingagents @ git+https://github.com/TauricResearch/TradingAgents.git@c4544913a14ed3df5f1ed7b9e8483270ce20682a

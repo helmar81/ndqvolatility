@@ -19,6 +19,24 @@ The Vite development server proxies `/api/stock-chart` to Yahoo Finance and `/ap
 
 Each stock card can request a market signal from the Typesafe `systemone` API. Analysis uses the current price, VWAP, intraday range, volatility, and price change to choose a LONG (Buy), SHORT (Sell), or NEUTRAL (Hold) signal. The API key is only used server-side.
 
+The separate **TradingAgents Analysis** panel sends the selected ticker and date to the Python backend in [`backend/`](./backend), using the market, news, and fundamentals analysts by default. For local development, create the Python environment and configure a model-provider API key:
+
+```sh
+cd backend
+python -m venv .venv
+source .venv/Scripts/activate
+python -m pip install -r requirements.txt
+cp .env.example .env
+```
+
+Add your provider key to `backend/.env`, then start the API from the `backend` directory:
+
+```sh
+python -m uvicorn server:app --host 127.0.0.1 --port 8000 --reload
+```
+
+In the repository root `.env`, set `VITE_API_BASE_URL=http://localhost:8000` and restart Vite. The frontend defaults to this local URL. For a deployed frontend, build with `VITE_API_BASE_URL` set to the publicly reachable backend origin and configure `TRADINGAGENTS_ALLOWED_ORIGINS` on the backend to include the frontend's origin. The Firebase `/api/analyze` rewrite is reserved for the separate stock-card signal service; the TradingAgents backend must use its own origin. Do not expose the unauthenticated development backend publicly.
+
 For local development, set `JEV_API_KEY` in the root `.env` file. For Firebase, configure the `JEV_API_KEY` secret before deployment:
 
 ```sh

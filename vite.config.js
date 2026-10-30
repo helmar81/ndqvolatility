@@ -106,12 +106,16 @@ function transformYahooChart(payload, symbol, timeframe) {
 export default defineConfig({
 	server: {
 		proxy: {
+<<<<<<< HEAD
 			'/api/analyze': {
 				target: 'http://localhost:8000',
 				changeOrigin: true,
 				secure: false
 			},
 			'/api': {
+=======
+			'/api/tradingagents': {
+>>>>>>> 331a249 (update python backend commit)
 				target: 'http://localhost:8000',
 				changeOrigin: true,
 				secure: false

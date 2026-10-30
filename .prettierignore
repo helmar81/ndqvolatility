@@ -7,3 +7,9 @@ bun.lockb
 
 # Miscellaneous
 /static/
+.venv
+backend/.venv
+backend/__pycache__
+build
+.firebase
+functions/node_modules
